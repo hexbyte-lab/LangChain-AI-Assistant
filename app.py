@@ -15,16 +15,35 @@ llm = ChatGoogleGenerativeAI(
 TESLA_SYSTEM_PROMPT = os.getenv("TESLA_SYSTEM_PROMPT")
 
 
-# print("System Prompt:", TESLA_SYSTEM_PROMPT)
 def chat_with_tesla(message, history):
+    """
+    Chat function for Gradio interface
+    Args:
+        message: Current user message (string or dict)
+        history: List of previous messages
+    Returns:
+        Response from Tesla
+    """
+    # Extract text if message is a dict
+    if isinstance(message, dict):
+        user_text = message.get("text", message.get("content", ""))
+    else:
+        user_text = message
+
+    # Build conversation history
     messages = [{"role": "system", "content": TESLA_SYSTEM_PROMPT}]
 
+    # Add history - handle both tuple and dict formats
     for msg in history:
         if isinstance(msg, dict) and "role" in msg and "content" in msg:
             messages.append({"role": msg["role"], "content": msg["content"]})
+        elif isinstance(msg, (list, tuple)) and len(msg) == 2:
+            # Old tuple format: [user_msg, bot_msg]
+            messages.append({"role": "user", "content": msg[0]})
+            messages.append({"role": "assistant", "content": msg[1]})
 
     # Add latest user message
-    messages.append({"role": "user", "content": message})
+    messages.append({"role": "user", "content": user_text})
 
     response = llm.invoke(messages)
     return response.content.strip()
@@ -32,6 +51,7 @@ def chat_with_tesla(message, history):
 
 demo = gr.ChatInterface(
     fn=chat_with_tesla,
+    # Remove type="messages" - not needed in Gradio 5.x
     title="⚡ Chat with Nikola Tesla",
     description=(
         "Ask Nikola Tesla about electricity, electromagnetism, AC systems, "
@@ -49,10 +69,4 @@ demo = gr.ChatInterface(
 )
 
 if __name__ == "__main__":
-    demo.launch(
-        share=True,
-        theme=gr.themes.Soft(
-            primary_hue="blue",
-            secondary_hue="slate",
-        ),
-    )
+    demo.launch(share=True)
